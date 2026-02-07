@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Michelle Guillaume Quiz</title>
+    <meta name="description" content="Application de quiz éducatif - Complexe Scolaire Michelle Guillaume">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #f59e0b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --border: #334155;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-main) 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            padding: 1rem;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        /* Header optimisé */
+        .header {
+            text-align: center;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        
+        .header h1 {
+            font-size: clamp(1.5rem, 5vw, 2rem);
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        /* Navigation simplifiée */
+        .nav {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .nav-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 0.75rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .nav-btn:hover {
+            background: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .nav-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* Panels */
+        .panel {
+            display: none;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        
+        .panel.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Quiz cards */
+        .quiz-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .quiz-card {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .quiz-card:hover {
+            transform: scale(1.05);
+        }
+        
+        .quiz-card h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .quiz-card p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        /* Question display */
+        .question-box {
+            background: var(--bg-main);
+            padding: 2rem;
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+            border: 2px solid var(--primary);
+        }
+        
+        .question-text {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        
+        .answers {
+            display: grid;
+            gap: 0.75rem;
+        }
+        
+        .answer-btn {
+            padding: 1rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            font-size: 1rem;
+        }
+        
+        .answer-btn:hover {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.1);
+        }
+        
+        .answer-btn.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+        }
+        
+        .answer-btn.correct {
+            border-color: var(--success);
+            background: var(--success);
+        }
+        
+        .answer-btn.incorrect {
+            border-color: var(--danger);
+            background: var(--danger);
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+        
+        /* Messages */
+        .message {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .message.show {
+            display: block;
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        
+        .message.success { background: var(--success); }
+        .message.error { background: var(--danger); }
+        .message.info { background: var(--primary); }
+        
+        /* Activation screen */
+        .activation-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-main);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .activation-screen.show {
+            display: flex;
+        }
+        
+        .activation-box {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 2px solid var(--primary);
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .activation-box h2 {
+            margin-bottom: 1rem;
+            color: var(--secondary);
+        }
+        
+        .activation-box input {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+        }
+        
+        /* Timer */
+        .timer {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--bg-main);
+            border-radius: 0.5rem;
+        }
+        
+        .timer-item {
+            text-align: center;
+        }
+        
+        .timer-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+        
+        .timer-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.5rem; }
+            .nav { flex-direction: column; }
+            .quiz-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 Complexe Scolaire Michelle Guillaume</h1>
+            <p>Excellence • Discipline • Travail</p>
+        </div>
+        
+        <div id="message" class="message"></div>
+        
+        <div class="nav">
+            <button class="nav-btn active" onclick="showPanel('home')">🏠 Accueil</button>
+            <button class="nav-btn" onclick="showPanel('create')">➕ Créer</button>
+            <button class="nav-btn" onclick="showPanel('stats')">📊 Stats</button>
+        </div>
+        
+        <!-- Panel Home -->
+        <div id="home-panel" class="panel active">
+            <h2 style="margin-bottom: 1rem;">📚 Mes Quiz</h2>
+            <div id="quiz-list" class="quiz-grid"></div>
+        </div>
+        
+        <!-- Panel Create -->
+        <div id="create-panel" class="panel">
+            <h2 style="margin-bottom: 1rem;">✍️ Créer un Quiz</h2>
+            <div class="form-group">
+                <label>Titre du Quiz</label>
+                <input type="text" id="quiz-title" placeholder="Ex: Mathématiques - Chapitre 1">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="quiz-desc" placeholder="Description du quiz..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Nombre de questions</label>
+                <input type="number" id="quiz-count" value="5" min="1" max="50">
+            </div>
+            <button class="btn btn-primary" onclick="createQuiz()">Créer le Quiz</button>
+        </div>
+        
+        <!-- Panel Stats -->
+        <div id="stats-panel" class="panel">
+            <h2 style="margin-bottom: 1rem;">📈 Statistiques</h2>
+            <div class="stats-grid" id="stats-container"></div>
+        </div>
+        
+        <!-- Panel Quiz -->
+        <div id="quiz-panel" class="panel">
+            <div class="timer">
+                <div class="timer-item">
+                    <div class="timer-value" id="current-q">1</div>
+                    <div class="timer-label">Question</div>
+                </div>
+                <div class="timer-item">
+                    <div class="timer-value" id="score">0</div>
+                    <div class="timer-label">Score</div>
+                </div>
+                <div class="timer-item">
+                    <div class="timer-value" id="timer">00:00</div>
+                    <div class="timer-label">Temps</div>
+                </div>
+            </div>
+            
+            <div class="question-box">
+                <div class="question-text" id="question-text"></div>
+                <div class="answers" id="answers-container"></div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-primary" onclick="validateAnswer()">Valider</button>
+                <button class="btn btn-danger" onclick="quitQuiz()">Quitter</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Activation Screen -->
+    <div id="activation-screen" class="activation-screen">
+        <div class="activation-box">
+            <h2>🔐 Activation requise</h2>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                Entrez votre clé de 12 caractères
+            </p>
+            <div class="form-group">
+                <label>Clé de licence (format: XXXX-XXXX-XXXX)</label>
+                <input type="text" id="license-key" placeholder="ABCD-1234-EFGH" maxlength="14">
+            </div>
+            <button class="btn btn-success" style="width: 100%;" onclick="activateApp()">Activer</button>
+            <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); text-align: center;">
+                Contactez votre enseignant pour obtenir une clé
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const STORAGE_KEY = 'mg_quizzes';
+        const LICENSE_KEY = 'mg_license';
+        let quizData = [];
+        let currentQuiz = null;
+        let currentQuestion = 0;
+        let score = 0;
+        let selectedAnswer = -1;
+        let timer = 0;
+        let timerInterval = null;
+        
+        // Stats
+        let stats = {
+            totalQuizzes: 0,
+            totalQuestions: 0,
+            correctAnswers: 0,
+            totalTime: 0
+        };
+        
+        // Fonction simple de décodage de clé alphanumérique
+        function decodeSimpleKey(key) {
+            // Retirer les tirets
+            const cleaned = key.replace(/-/g, '');
+            
+            // Vérifier la longueur (12 caractères)
+            if (cleaned.length !== 12) return null;
+            
+            try {
+                // Les 8 premiers caractères contiennent les infos encodées
+                // Les 4 derniers sont le checksum
+                const data = cleaned.substring(0, 8);
+                const checksum = cleaned.substring(8, 12);
+                
+                // Décoder le mois (1er caractère: A=1, B=2, C=3)
+                const monthCode = data.charCodeAt(0) - 65; // A=0, B=1, C=2
+                const duration = monthCode + 1; // 1 ou 3 mois
+                
+                // Décoder la durée en jours (caractères 2-3, base 36)
+                const days = parseInt(data.substring(1, 3), 36);
+                
+                // Calculer la date d'expiration
+                const created = Date.now();
+                const exp = created + (days * 24 * 60 * 60 * 1000);
+                
+                // Vérifier le checksum simple
+                const expectedChecksum = generateChecksum(data);
+                if (checksum !== expectedChecksum) return null;
+                
+                return {
+                    duration: duration === 2 ? 3 : 1, // A=1 mois, C=3 mois
+                    created: created,
+                    exp: exp,
+                    name: 'Étudiant'
+                };
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        // Générer un checksum simple
+        function generateChecksum(data) {
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) {
+                sum += data.charCodeAt(i);
+            }
+            return sum.toString(36).toUpperCase().padStart(4, '0').slice(-4);
+        }
+        
+        // Vérification de la licence
+        function verifyLicense() {
+            const license = localStorage.getItem(LICENSE_KEY);
+            if (!license) return false;
+            
+            try {
+                const data = JSON.parse(license);
+                const now = Date.now();
+                return now < data.exp;
+            } catch {
+                return false;
+            }
+        }
+        
+        // Activation
+        function activateApp() {
+            const key = document.getElementById('license-key').value.trim().toUpperCase();
+            if (!key) {
+                showMessage('Entrez une clé valide', 'error');
+                return;
+            }
+            
+            // Vérifier le format de base
+            const keyPattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+            if (!keyPattern.test(key)) {
+                showMessage('Format invalide. Utilisez: XXXX-XXXX-XXXX', 'error');
+                return;
+            }
+            
+            const data = decodeSimpleKey(key);
+            
+            if (!data) {
+                showMessage('❌ Clé invalide', 'error');
+                return;
+            }
+            
+            // Vérifier l'expiration
+            if (Date.now() > data.exp) {
+                showMessage('❌ Clé expirée', 'error');
+                return;
+            }
+            
+            // Sauvegarder
+            localStorage.setItem(LICENSE_KEY, JSON.stringify(data));
+            document.getElementById('activation-screen').classList.remove('show');
+            
+            const durationText = data.duration === 1 ? '1 mois' : '3 mois';
+            showMessage(`✅ Activé pour ${durationText} !`, 'success');
+            initApp();
+        }
+        
+        // Navigation
+        function showPanel(panel) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(panel + '-panel').classList.add('active');
+            event.target.classList.add('active');
+            
+            if (panel === 'home') loadQuizzes();
+            if (panel === 'stats') loadStats();
+        }
+        
+        // Messages
+        function showMessage(text, type = 'info') {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type} show`;
+            setTimeout(() => msg.classList.remove('show'), 3000);
+        }
+        
+        // Charger les quiz
+        function loadQuizzes() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            quizData = data ? JSON.parse(data) : [];
+            
+            const container = document.getElementById('quiz-list');
+            
+            if (quizData.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Aucun quiz disponible. Créez-en un!</p>';
+                return;
+            }
+            
+            container.innerHTML = quizData.map((quiz, i) => `
+                <div class="quiz-card" onclick="startQuiz(${i})">
+                    <h3>${quiz.title}</h3>
+                    <p>${quiz.desc}</p>
+                    <p style="margin-top: 0.5rem;">📝 ${quiz.questions.length} questions</p>
+                </div>
+            `).join('');
+        }
+        
+        // Créer un quiz
+        function createQuiz() {
+            const title = document.getElementById('quiz-title').value.trim();
+            const desc = document.getElementById('quiz-desc').value.trim();
+            const count = parseInt(document.getElementById('quiz-count').value);
+            
+            if (!title) {
+                showMessage('Entrez un titre', 'error');
+                return;
+            }
+            
+            const questions = [];
+            for (let i = 0; i < count; i++) {
+                questions.push({
+                    q: `Question ${i + 1}`,
+                    a: ['Réponse A', 'Réponse B', 'Réponse C', 'Réponse D'],
+                    c: 0
+                });
+            }
+            
+            const quiz = {
+                id: Date.now(),
+                title,
+                desc: desc || 'Nouveau quiz',
+                questions
+            };
+            
+            quizData.push(quiz);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(quizData));
+            
+            document.getElementById('quiz-title').value = '';
+            document.getElementById('quiz-desc').value = '';
+            document.getElementById('quiz-count').value = '5';
+            
+            showMessage('Quiz créé avec succès!', 'success');
+            showPanel('home');
+        }
+        
+        // Démarrer un quiz
+        function startQuiz(index) {
+            currentQuiz = quizData[index];
+            currentQuestion = 0;
+            score = 0;
+            timer = 0;
+            selectedAnswer = -1;
+            
+            showPanel('quiz');
+            displayQuestion();
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timer++;
+                const mins = Math.floor(timer / 60);
+                const secs = timer % 60;
+                document.getElementById('timer').textContent = 
+                    `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }, 1000);
+        }
+        
+        // Afficher une question
+        function displayQuestion() {
+            if (currentQuestion >= currentQuiz.questions.length) {
+                endQuiz();
+                return;
+            }
+            
+            const q = currentQuiz.questions[currentQuestion];
+            document.getElementById('current-q').textContent = currentQuestion + 1;
+            document.getElementById('score').textContent = score;
+            document.getElementById('question-text').textContent = q.q;
+            
+            const container = document.getElementById('answers-container');
+            container.innerHTML = q.a.map((ans, i) => `
+                <button class="answer-btn" onclick="selectAnswer(${i})">
+                    ${String.fromCharCode(65 + i)}. ${ans}
+                </button>
+            `).join('');
+            
+            selectedAnswer = -1;
+        }
+        
+        // Sélectionner une réponse
+        function selectAnswer(index) {
+            document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+                btn.classList.toggle('selected', i === index);
+            });
+            selectedAnswer = index;
+        }
+        
+        // Valider la réponse
+        function validateAnswer() {
+            if (selectedAnswer === -1) {
+                showMessage('Sélectionnez une réponse', 'error');
+                return;
+            }
+            
+            const q = currentQuiz.questions[currentQuestion];
+            const isCorrect = selectedAnswer === q.c;
+            
+            document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+                if (i === q.c) {
+                    btn.classList.add('correct');
+                } else if (i === selectedAnswer) {
+                    btn.classList.add('incorrect');
+                }
+                btn.style.pointerEvents = 'none';
+            });
+            
+            if (isCorrect) {
+                score++;
+                stats.correctAnswers++;
+                showMessage('✅ Bonne réponse!', 'success');
+            } else {
+                showMessage('❌ Mauvaise réponse', 'error');
+            }
+            
+            stats.totalQuestions++;
+            
+            setTimeout(() => {
+                currentQuestion++;
+                displayQuestion();
+            }, 1500);
+        }
+        
+        // Terminer le quiz
+        function endQuiz() {
+            clearInterval(timerInterval);
+            stats.totalQuizzes++;
+            stats.totalTime += timer;
+            localStorage.setItem('mg_stats', JSON.stringify(stats));
+            
+            const percent = Math.round((score / currentQuiz.questions.length) * 100);
+            showMessage(`Quiz terminé! Score: ${score}/${currentQuiz.questions.length} (${percent}%)`, 'success');
+            
+            setTimeout(() => showPanel('home'), 2000);
+        }
+        
+        // Quitter le quiz
+        function quitQuiz() {
+            if (confirm('Voulez-vous vraiment quitter?')) {
+                clearInterval(timerInterval);
+                showPanel('home');
+            }
+        }
+        
+        // Charger les stats
+        function loadStats() {
+            const data = localStorage.getItem('mg_stats');
+            if (data) stats = JSON.parse(data);
+            
+            const avgScore = stats.totalQuestions > 0 
+                ? Math.round((stats.correctAnswers / stats.totalQuestions) * 100) 
+                : 0;
+            
+            const avgTime = stats.totalQuizzes > 0
+                ? Math.round(stats.totalTime / stats.totalQuizzes / 60)
+                : 0;
+            
+            document.getElementById('stats-container').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${stats.totalQuizzes}</div>
+                    <div class="stat-label">Quiz complétés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.totalQuestions}</div>
+                    <div class="stat-label">Questions répondues</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${avgScore}%</div>
+                    <div class="stat-label">Score moyen</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${avgTime} min</div>
+                    <div class="stat-label">Temps moyen</div>
+                </div>
+            `;
+        }
+        
+        // Initialisation
+        function initApp() {
+            loadQuizzes();
+            const statsData = localStorage.getItem('mg_stats');
+            if (statsData) stats = JSON.parse(statsData);
+        }
+        
+        // Démarrage
+        window.addEventListener('load', () => {
+            if (verifyLicense()) {
+                initApp();
+            } else {
+                document.getElementById('activation-screen').classList.add('show');
+            }
+        });
+    </script>
+</body>
+</html>
