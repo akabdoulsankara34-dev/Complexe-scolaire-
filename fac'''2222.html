@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Système de Facturation & Gestion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        // Importation corrigée : suppression de 'timestamp' qui causait une erreur
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- CONFIGURATION ---
+        const CURRENT_CLIENT_ID = "Boutique_eric"; 
+        const MASTER_PIN = "9999"; // Code pour accéder au panel propriétaire via triple-clique
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBrQy4VuncezPeZ6vPTaiTmTWxqTVQm1ZI",
+            authDomain: "commerce-3ae6e.firebaseapp.com",
+            projectId: "commerce-3ae6e",
+            storageBucket: "commerce-3ae6e.firebasestorage.app",
+            messagingSenderId: "946906333487",
+            appId: "1:946906333487:web:d6cd511e80a3a0d0b921da"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Initialisation des données établissement
+        async function initApp() {
+            try {
+                const docRef = doc(db, "clients", CURRENT_CLIENT_ID);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const d = docSnap.data();
+                    if(d.statut_abonnement !== "actif") {
+                        document.body.innerHTML = "<div class='flex items-center justify-center h-screen text-red-600 font-black'><h1>ABONNEMENT EXPIRÉ</h1></div>";
+                        return;
+                    }
+                    document.getElementById('displayNom').innerText = d.nom;
+                    document.getElementById('displayActivite').innerText = d.activite || "Commerce";
+                    document.getElementById('displayTel').innerText = d.tel || "";
+                    document.getElementById('displayVille').innerText = d.ville || "";
+                }
+            } catch (e) { console.error("Erreur init:", e); }
+        }
+
+        // --- SÉCURITÉ TRIPLE CLIQUE (FENÊTRE CACHÉE) ---
+        let clicks = 0;
+        window.verifierTripleClique = () => {
+            clicks++;
+            if (clicks === 3) {
+                const code = prompt("ENTREZ LE CODE PROPRIÉTAIRE :");
+                if (code === MASTER_PIN) {
+                    document.getElementById('ownerPanel').classList.remove('hidden');
+                    chargerStatistiques();
+                } else if (code !== null) {
+                    alert("CODE INCORRECT");
+                }
+                clicks = 0;
+            }
+            setTimeout(() => { clicks = 0; }, 1000);
+        };
+
+        // --- CALCUL DES STATISTIQUES VENTES ---
+        async function chargerStatistiques() {
+            const q = query(collection(db, "ventes"), where("clientId", "==", CURRENT_CLIENT_ID));
+            const snap = await getDocs(q);
+            let totalJour = 0, totalMois = 0, totalAn = 0;
+            const maintenant = new Date();
+
+            snap.forEach(doc => {
+                const vente = doc.data();
+                const dateVente = vente.date.toDate();
+                if(dateVente.getFullYear() === maintenant.getFullYear()) {
+                    totalAn += vente.montant;
+                    if(dateVente.getMonth() === maintenant.getMonth()) {
+                        totalMois += vente.montant;
+                        if(dateVente.getDate() === maintenant.getDate()) totalJour += vente.montant;
+                    }
+                }
+            });
+            document.getElementById('valJour').innerText = totalJour.toLocaleString() + " F";
+            document.getElementById('valMois').innerText = totalMois.toLocaleString() + " F";
+            document.getElementById('valAn').innerText = totalAn.toLocaleString() + " F";
+        }
+
+        // --- AJOUTER UN CAISSIER ---
+        window.saveCaissier = async () => {
+            const nom = document.getElementById('cNom').value;
+            const pin = document.getElementById('cPin').value;
+            if(!nom || pin.length !== 4) return alert("Nom et PIN (4 chiffres) requis");
+            await addDoc(collection(db, "caissiers"), { nom, pin, clientId: CURRENT_CLIENT_ID });
+            alert("Caissier ajouté !");
+            document.getElementById('cNom').value = ""; document.getElementById('cPin').value = "";
+        };
+
+        // --- GESTION CONNEXION CAISSE ---
+        window.verifierPIN = async () => {
+            const p = document.getElementById('pinInput').value.trim();
+            const q = query(collection(db, "caissiers"), where("pin", "==", p), where("clientId", "==", CURRENT_CLIENT_ID));
+            const snap = await getDocs(q);
+            if(!snap.empty) {
+                document.getElementById('nomCaissier').innerText = snap.docs[0].data().nom;
+                document.getElementById('loginModal').style.display = 'none';
+                document.getElementById('appContent').classList.remove('opacity-20', 'pointer-events-none');
+            } else { alert("PIN INCORRECT"); }
+        };
+
+        // --- VALIDATION COMMUNE (Base de données) ---
+        async function enregistrerVenteDB() {
+            const totalStr = document.getElementById('grandTotal').innerText.replace(/\s/g, '').replace('F', '');
+            const total = parseFloat(totalStr);
+            if(!total || total <= 0) { alert("Facture vide"); return null; }
+            
+            await addDoc(collection(db, "ventes"), {
+                clientId: CURRENT_CLIENT_ID,
+                montant: total,
+                caissier: document.getElementById('nomCaissier').innerText,
+                date: new Date()
+            });
+            return { total, nomBoutique: document.getElementById('displayNom').innerText };
+        }
+
+        // --- ACTION IMPRIMER ---
+        window.validerVente = async () => {
+            if(await enregistrerVenteDB()) { window.print(); location.reload(); }
+        };
+
+        // --- ACTION PARTAGER WHATSAPP ---
+        window.partagerWhatsApp = async () => {
+            const vente = await enregistrerVenteDB();
+            if(vente) {
+                let message = `*${vente.nomBoutique}*%0A--------------------------%0A💰 *TOTAL : ${vente.total.toLocaleString()} F CFA*%0A👤 Caissier : ${document.getElementById('nomCaissier').innerText}%0A📅 Date : ${new Date().toLocaleDateString()}%0A--------------------------%0AMerci de votre confiance !`;
+                window.open(`https://wa.me/?text=${message}`, '_blank');
+                location.reload();
+            }
+        };
+
+        window.onload = initApp;
+    </script>
+    <style>
+        @media print { .no-print { display: none !important; } #facture-ticket { border:none; width:80mm; margin:0; } }
+        input { border:none; outline:none; background: transparent; }
+    </style>
+</head>
+<body class="bg-gray-100 p-2 font-serif">
+
+    <div id="loginModal" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl text-center">
+            <h2 class="font-black mb-4 uppercase">Code Caissier</h2>
+            <input type="password" id="pinInput" maxlength="4" class="border-4 border-sky-500 text-4xl w-32 text-center mb-6 block mx-auto font-black rounded-lg">
+            <button onclick="verifierPIN()" class="bg-sky-600 text-white px-8 py-3 rounded-lg font-black w-full uppercase">Ouvrir la Caisse</button>
+        </div>
+    </div>
+
+    <div id="ownerPanel" class="hidden fixed inset-0 bg-slate-950 z-[60] p-6 text-white overflow-y-auto">
+        <div class="max-w-xl mx-auto">
+            <div class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
+                <h1 class="text-xl font-black text-sky-400 uppercase">Gestion Propriétaire</h1>
+                <button onclick="document.getElementById('ownerPanel').classList.add('hidden')" class="bg-red-600 px-4 py-1 rounded text-xs font-bold">FERMER</button>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-10 text-center">
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">Jour</p>
+                    <p id="valJour" class="text-lg font-black text-green-400">0 F</p>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">Mois</p>
+                    <p id="valMois" class="text-lg font-black text-sky-400">0 F</p>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">An</p>
+                    <p id="valAn" class="text-lg font-black text-orange-400">0 F</p>
+                </div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+                <h2 class="font-black mb-4 text-sky-300 text-sm">NOUVEAU CAISSIER</h2>
+                <input type="text" id="cNom" placeholder="Nom" class="w-full bg-slate-800 p-3 rounded-lg mb-3 border border-slate-700">
+                <input type="password" id="cPin" maxlength="4" placeholder="PIN (4 chiffres)" class="w-full bg-slate-800 p-3 rounded-lg mb-5 border border-slate-700">
+                <button onclick="saveCaissier()" class="w-full bg-sky-600 py-3 rounded-lg font-black uppercase tracking-widest">Enregistrer l'accès</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="appContent" class="opacity-20 pointer-events-none transition-opacity duration-500">
+        <div id="facture-ticket" class="max-w-[80mm] mx-auto bg-white p-4 border border-black shadow-lg">
+            <div class="flex justify-between items-start border-b-2 border-black pb-2 text-[10px]">
+                <div class="w-3/5 cursor-pointer" onclick="verifierTripleClique()">
+                    <h1 id="displayNom" class="text-lg font-black leading-none uppercase tracking-tighter">CHARGEMENT...</h1>
+                    <p id="displayActivite" class="mt-1 font-bold italic"></p>
+                    <p id="displayTel" class="font-bold"></p>
+                    <p id="displayVille"></p>
+                </div>
+                <div class="border border-black text-center w-[28mm]">
+                    <div class="grid grid-cols-3 border-b border-black text-[8px] font-bold bg-gray-100"><span>J</span><span>M</span><span>A</span></div>
+                    <div id="date-display" class="grid grid-cols-3 p-1 font-bold text-[10px]"></div>
+                </div>
+            </div>
+            <div class="flex justify-between items-center my-2 text-[10px]">
+                <span class="italic font-bold">C: <span id="nomCaissier"></span></span>
+                <span class="text-xl font-black uppercase tracking-tighter italic">Facture</span>
+            </div>
+            <table class="w-full border-collapse border border-black text-[11px]">
+                <thead>
+                    <tr class="bg-gray-100 border-b border-black font-bold uppercase text-[9px]">
+                        <th class="border-r border-black p-1 text-left">Article</th>
+                        <th class="border-r border-black p-1 w-8">Qté</th>
+                        <th class="border-r border-black p-1 w-14">P.U</th>
+                        <th class="p-1 text-right w-16">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="lignes-facture">
+                    <tr class="border-b border-gray-200">
+                        <td class="border-r border-black"><input type="text" class="w-full px-1 uppercase font-bold"></td>
+                        <td class="border-r border-black"><input type="number" class="w-full text-center qte font-bold" value="1" oninput="calculer()"></td>
+                        <td class="border-r border-black"><input type="number" class="w-full text-center pu font-bold" placeholder="0" oninput="calculer()"></td>
+                        <td class="text-right px-1 font-black total-ligne">0</td>
+                    </tr>
+                </tbody>
+            </table>
+            <button onclick="addRow()" class="no-print bg-gray-200 px-3 py-1 text-[10px] mt-2 font-bold rounded">+ LIGNE</button>
+            <div class="mt-4 border-t-2 border-black pt-2">
+                <div class="flex justify-between font-black text-sm bg-gray-100 p-1"><span>TOTAL</span><span><span id="grandTotal">0</span> F CFA</span></div>
+                <p id="lettres" class="text-[9px] mt-2 italic uppercase border-b border-dotted border-black pb-1">Arrêté à la somme de...</p>
+            </div>
+        </div>
+        <div class="no-print max-w-[80mm] mx-auto space-y-3 mt-6">
+            <button onclick="validerVente()" class="block w-full bg-green-600 text-white py-4 rounded-xl font-black shadow-xl uppercase tracking-widest">🖨️ Imprimer</button>
+            <button onclick="partagerWhatsApp()" class="block w-full bg-emerald-500 text-white py-3 rounded-xl font-bold uppercase text-sm flex items-center justify-center gap-2 shadow-md">📲 Partager WhatsApp</button>
+        </div>
+    </div>
+
+    <script>
+        function addRow() {
+            const row = `<tr class="border-b border-gray-200"><td class="border-r border-black"><input type="text" class="w-full px-1 uppercase font-bold"></td><td class="border-r border-black"><input type="number" class="w-full text-center qte font-bold" value="1" oninput="calculer()"></td><td class="border-r border-black"><input type="number" class="w-full text-center pu font-bold" placeholder="0" oninput="calculer()"></td><td class="text-right px-1 font-black total-ligne">0</td></tr>`;
+            document.getElementById('lignes-facture').insertAdjacentHTML('beforeend', row);
+        }
+        function calculer() {
+            let totalGeneral = 0;
+            document.querySelectorAll('#lignes-facture tr').forEach(tr => {
+                const qte = parseFloat(tr.querySelector('.qte').value) || 0;
+                const pu = parseFloat(tr.querySelector('.pu').value) || 0;
+                const ligneTotal = qte * pu;
+                tr.querySelector('.total-ligne').innerText = ligneTotal.toLocaleString('fr-FR');
+                totalGeneral += ligneTotal;
+            });
+            document.getElementById('grandTotal').innerText = totalGeneral.toLocaleString('fr-FR');
+            document.getElementById('lettres').innerText = "Arrêté la présente facture à la somme de : " + totalGeneral.toLocaleString('fr-FR') + " F CFA";
+        }
+        const d = new Date();
+        document.getElementById('date-display').innerHTML = `<span>${String(d.getDate()).padStart(2,'0')}</span><span>${String(d.getMonth()+1).padStart(2,'0')}</span><span>${d.getFullYear()}</span>`;
+    </script>
+</body>
+</html>
